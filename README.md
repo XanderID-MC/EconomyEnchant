@@ -28,7 +28,7 @@ Commands | Default
 
 ## How to Registering Enchantment
 
-Do you want to register your enchant Into this EnchantShop, Please follow this [Wiki](https://github.com/XanderID/EconomyEnchant/wiki/Registering-Enchantment)
+Do you want to register your enchant Into this EnchantShop, Please follow this [Wiki](https://github.com/XanderID-MC/EconomyEnchant/wiki/Registering-Enchantment)
 
 ## API
 
@@ -43,18 +43,18 @@ First Import Class MulqiGaming64\EconomyEnchant\Manager\EnchantManager</br>
 
 * Form ( UI )
   * Selecting Form
-    ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/Form1.jpg)
+    ![Screenshot](https://github.com/XanderID-MC/EconomyEnchant/blob/main/.screenshot/Form1.jpg)
   * Confirmation Form
-    ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/Form2.jpg)
+    ![Screenshot](https://github.com/XanderID-MC/EconomyEnchant/blob/main/.screenshot/Form2.jpg)
 * InvMenu ( GUI )
   * Selecting GUI ( Page )
-    ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/GUI1.jpg)
+    ![Screenshot](https://github.com/XanderID-MC/EconomyEnchant/blob/main/.screenshot/GUI1.jpg)
   * Confirmation GUI
-    ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/GUI2.jpg)
+    ![Screenshot](https://github.com/XanderID-MC/EconomyEnchant/blob/main/.screenshot/GUI2.jpg)
 
 ## Supported Custom Enchant Plugin
 
-* Empty, You can add your own by clicking [this link](https://github.com/XanderID/EconomyEnchant/wiki/Registering-Enchantment)
+* Empty, You can add your own by clicking [this link](https://github.com/XanderID-MC/EconomyEnchant/wiki/Registering-Enchantment)
 
 ## Supported Economy Providers
 
@@ -201,4 +201,4 @@ blacklist-item: []
 
 ## Additional Notes
 
-* If you find bugs or want to give suggestions, please visit [here](https://github.com/XanderID/EconomyEnchant/issues)
+* If you find bugs or want to give suggestions, please visit [here](https://github.com/XanderID-MC/EconomyEnchant/issues)
