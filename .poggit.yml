@@ -1,4 +1,4 @@
---- # Poggit-CI Manifest. Open the CI at https://poggit.pmmp.io/ci/MulqiGaming64/EconomyEnchant
+--- # Poggit-CI Manifest. Open the CI at https://poggit.pmmp.io/ci/XanderID-MC/EconomyEnchant
 build-by-default: true
 branches:
 - main
@@ -7,14 +7,14 @@ projects:
     path: ""
     icon: "icon.png"
     libs:
-      - src: jojoe77777/FormAPI/libFormAPI
-        version: ^2.1.1
+      - src: XanderID/PocketForm/PocketForm
+        version: ^1.0.1
       - src: LatamPMDevs/UpdateNotifier/UpdateNotifier
         version: ^3.0.0
       - src: LatamPMDevs/ConfigUpdater/ConfigUpdater
         version: ^2.0.1
       - src: muqsit/InvMenu/InvMenu
         branch: "pm5"
-        version: ^4.6.2
+        version: ^4.6.5
     lint: false
 ...

@@ -9,6 +9,7 @@ Commands | Default
 `/eshop` | True
 
 ## Feature
+
 * Support Multiple Economys
 * Support Multiple CustomEnchant
 * Support EnchantTable Direct
@@ -18,52 +19,55 @@ Commands | Default
 * Customable Message
 * Customable Form (GUI / UI)
 * Form
-  - Configurable Form
-  - Slide for Level
+  * Configurable Form
+  * Slide for Level
 * GUI
-  - Configurable GUI
-  - If the enchant exceeds 26 Will be Divided into Pages
-  - Confirmation GUI
+  * Configurable GUI
+  * If the enchant exceeds 26 Will be Divided into Pages
+  * Confirmation GUI
 
 ## How to Registering Enchantment
+
 Do you want to register your enchant Into this EnchantShop, Please follow this [Wiki](https://github.com/XanderID/EconomyEnchant/wiki/Registering-Enchantment)
 
 ## API
+
 First Import Class MulqiGaming64\EconomyEnchant\Manager\EnchantManager</br>
-- Getting Item Flags
-  * EnchantManager::getItemFlags(/** Items you want */);
-- Checking if Enchant Blacklisted
+
+* Checking if Enchant Blacklisted
   * EnchantManager::isEnchantBlacklisted(/** Name the enchantment with Lower */);
-- Checking if Enchant blacklisted in Item
+* Checking if Enchant blacklisted in Item
   * EnchantManager::isItemBlacklisted(/** The Item */, /** Name Enchantment with Lower */);
 
 ## Screenshot
+
 * Form ( UI )
-  - Selecting Form
+  * Selecting Form
     ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/Form1.jpg)
-  - Confirmation Form
+  * Confirmation Form
     ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/Form2.jpg)
 * InvMenu ( GUI )
-  - Selecting GUI ( Page )
+  * Selecting GUI ( Page )
     ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/GUI1.jpg)
-  - Confirmation GUI
+  * Confirmation GUI
     ![Screenshot](https://github.com/XanderID/EconomyEnchant/blob/main/.screenshot/GUI2.jpg)
 
 ## Supported Custom Enchant Plugin
-* [VanillaEC](https://poggit.pmmp.io/p/VanillaEC/) By David-pm-pl
+
+* Empty, You can add your own by clicking [this link](https://github.com/XanderID/EconomyEnchant/wiki/Registering-Enchantment)
 
 ## Supported Economy Providers
 
 * [BedrockEconomy](https://poggit.pmmp.io/p/BedrockEconomy) by cooldogedev
 * [XP](https://github.com/pmmp/PocketMine-MP) By PocketMine-MP
 
-# Config
+## Config
 
 ``` YAML
 
 ---
 # Please don't edit this, only for internal use
-config-version: 3
+config-version: 4
 
 # Your Economy plugin name
 # Available: BedrockEconomy, XP, Auto
@@ -104,6 +108,8 @@ form:
   max-content: "§aYour item has reached the level limit!"
   # Slider Content
   slider: "Level"
+  # Button
+  button: "Enchant Item"
 
 # GUI
 gui:
@@ -145,13 +151,13 @@ gui:
 message:
  # Cannot Enchant On This Item
  err-item: "§cYou cannot add Enchantment to This Item!"
+ # Enchantment doesn't Exists
+ err-enchant: "§cThis enchantment is not available!"
  # Exit Message
  exit: "§aThank you for visiting!"
  # Successfully Buy Enchant
  # Tag: {enchant} Name Enchantment, {item} Name Item, {price} Price Enchantment
  success: "§aSuccessfully Enchant {enchant} to {item}, with Price {price}"
- # Error Max Enchant
- max: "§cEnchant failed!, Your item is reached Max Level"
  # Error Money not Enough
  # Tag: {need} Needed Money
  enough: "§cYour money is not enough need {need}"
@@ -188,12 +194,11 @@ blacklist-item: []
 
 ```
 
-# What's New
--  Remove Support Capital, EconomyAPI and PiggyCE until they update
-- Fix Remaining GUI Page
-- Fix wrong price in the GUI Page
-- Update To New PocketMine-MP 5.0.0
+## What's New
 
-# Additional Notes
+* Update
+* Remove Item Flags
 
-- If you find bugs or want to give suggestions, please visit [here](https://github.com/XanderID/EconomyEnchant/issues)
+## Additional Notes
+
+* If you find bugs or want to give suggestions, please visit [here](https://github.com/XanderID/EconomyEnchant/issues)

@@ -1,6 +1,6 @@
 ---
 # Please don't edit this, only for internal use
-config-version: 3
+config-version: 4
 
 # Your Economy plugin name
 # Available: BedrockEconomy, XP, Auto
@@ -41,6 +41,8 @@ form:
   max-content: "§aYour item has reached the level limit!"
   # Slider Content
   slider: "Level"
+  # Button
+  button: "Enchant Item"
 
 # GUI
 gui:
@@ -82,13 +84,13 @@ gui:
 message:
  # Cannot Enchant On This Item
  err-item: "§cYou cannot add Enchantment to This Item!"
+ # Enchantment doesn't Exists
+ err-enchant: "§cThis enchantment is not available!"
  # Exit Message
  exit: "§aThank you for visiting!"
  # Successfully Buy Enchant
  # Tag: {enchant} Name Enchantment, {item} Name Item, {price} Price Enchantment
  success: "§aSuccessfully Enchant {enchant} to {item}, with Price {price}"
- # Error Max Enchant
- max: "§cEnchant failed!, Your item is reached Max Level"
  # Error Money not Enough
  # Tag: {need} Needed Money
  enough: "§cYour money is not enough need {need}"

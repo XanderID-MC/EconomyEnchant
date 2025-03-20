@@ -4,333 +4,163 @@ declare(strict_types=1);
 
 namespace MulqiGaming64\EconomyEnchant;
 
-use DavidGlitch04\VanillaEC\Main as VanillaEC;
 use JackMD\ConfigUpdater\ConfigUpdater;
-
 use JackMD\UpdateNotifier\UpdateNotifier;
-
 use MulqiGaming64\EconomyEnchant\Commands\EconomyEnchantCommands;
 use MulqiGaming64\EconomyEnchant\Manager\EnchantManager;
 use MulqiGaming64\EconomyEnchant\Manager\Enchantment\VanillaEnchant;
 use MulqiGaming64\EconomyEnchant\Provider\Provider;
-use MulqiGaming64\EconomyEnchant\Provider\Types\BedrockEconomy;
-use MulqiGaming64\EconomyEnchant\Provider\Types\XP;
+use MulqiGaming64\EconomyEnchant\Provider\ProviderManager;
 use MulqiGaming64\EconomyEnchant\Transaction\Shop\GUI;
 use MulqiGaming64\EconomyEnchant\Transaction\Shop\UI;
 use muqsit\invmenu\InvMenu;
-
 use muqsit\invmenu\InvMenuHandler;
-use pocketmine\data\bedrock\EnchantmentIdMap;
-use pocketmine\data\bedrock\EnchantmentIds;
+use pocketmine\block\EnchantingTable;
+use pocketmine\event\EventPriority;
+use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\item\enchantment\VanillaEnchantments;
-
-use MulqiGaming64\EconomyEnchant\Item\EnchantedBook;
-use pocketmine\data\bedrock\item\ItemTypeNames;
-use pocketmine\data\bedrock\item\SavedItemData;
-use pocketmine\item\StringToItemParser;
-use pocketmine\scheduler\AsyncTask;
-use pocketmine\world\format\io\GlobalItemDataHandlers;
-
-use jojoe77777\FormAPI\FormAPI;
 use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
-
+use pocketmine\utils\SingletonTrait;
+use XanderID\PocketForm\PocketForm;
 use function class_exists;
 use function implode;
 use function str_replace;
 use function strtolower;
-use function ucwords;
 
-class EconomyEnchant extends PluginBase
-{
-    /** XP Provider does not need to be included here because it is not a Plugin */
-    public const availableEconomy = ["BedrockEconomy"];
+class EconomyEnchant extends PluginBase {
+	use SingletonTrait;
 
-    /** All status Provider */
-    public const STATUS_SUCCESS = 0;
-    public const STATUS_ENOUGH = 1;
+	private const CONFIG_VERSION = 4;
 
-    /** Config Version */
-    private const CONFIG_VERSION = 3;
+	private $providerManager;
+	private $shopUI;
 
-    /** @return EconomyEnchant */
-    private static EconomyEnchant $instance;
+	public function onEnable() : void {
+		self::setInstance($this);
+		$this->saveDefaultConfig();
 
-    /** @var Provider $provider */
-    private $provider;
+		if (!$this->checkVirion()) {
+			return;
+		}
 
-    protected function onLoad(): void
-    {
-        self::$instance = $this; // Preparing Instance
-    }
+		UpdateNotifier::checkUpdate($this->getDescription()->getName(), $this->getDescription()->getVersion());
 
-    public function onEnable(): void
-    {
-        $this->saveDefaultConfig();
+		if (ConfigUpdater::checkUpdate($this, $this->getConfig(), 'config-version', self::CONFIG_VERSION)) {
+			$this->reloadConfig();
+		}
 
-        if(!$this->checkVirion()) {
-            return;
-        }
+		if ((bool) $this->getConfig()->get('enchant-table', true)) {
+			$this->registerEnchantTableEvent();
+		}
 
-        // Checking New version
-        UpdateNotifier::checkUpdate($this->getDescription()->getName(), $this->getDescription()->getVersion());
+		$mode = (bool) $this->getConfig()->get('mode', true);
+		$this->registerVanillaEnchant($mode);
 
-        // Checking Config version
-        if(ConfigUpdater::checkUpdate($this, $this->getConfig(), "config-version", self::CONFIG_VERSION)) {
-            $this->reloadConfig();
-        }
+		$this->getServer()->getCommandMap()->register('EconomyEnchant', new EconomyEnchantCommands($this));
+		$this->providerManager = new ProviderManager($this);
+	}
 
-        $economy = $this->getEconomyType();
-        if($economy !== null) {
-            $this->registerProvider($economy);
+	public function getProvider() : Provider {
+		return $this->providerManager->getProvider();
+	}
 
-            $mode = (bool) $this->getConfig()->get("mode"); // Getting mode in Config
+	public function checkVirion() : bool {
+		$errorSuffix = ' not installed. Please install or download EconomyEnchant from Poggit CI. Plugin disabled!';
 
-            // Registering Enchantment to Shop
-            $this->registerVanillaEnchant($mode);
+		$requiredDependencies = [
+			'ConfigUpdater' => ConfigUpdater::class,
+			'UpdateNotifier' => UpdateNotifier::class,
+		];
+		$missing = [];
+		foreach ($requiredDependencies as $name => $class) {
+			if (!class_exists($class)) {
+				$missing[] = $name;
+			}
+		}
 
-            // Checking softdepend
-            if (class_exists(VanillaEC::class)) {
-                $this->registerVanillaCEnchant($mode);
-            }
+		if (!empty($missing)) {
+			$this->getLogger()->warning('Virion: ' . implode(', ', $missing) . $errorSuffix);
+			$this->getServer()->getPluginManager()->disablePlugin($this);
+			return false;
+		}
 
-            $this->getServer()->getPluginManager()->registerEvents(new Listener((bool) $this->getConfig()->get("enchant-table")), $this);
-            $this->getServer()->getCommandMap()->register("EconomyEnchant", new EconomyEnchantCommands($this));
+		$formType = strtolower($this->getConfig()->get('form-type'));
+		if ($formType === 'gui') {
+			if (!$this->checkDependency(InvMenu::class, 'InvMenu', $errorSuffix)) {
+				return false;
+			}
 
-            if(StringToItemParser::getInstance()->parse("enchanted_book") === null) {
-                self::registerBook();
-                $this->getServer()->getAsyncPool()->addWorkerStartHook(function (int $worker): void {
-                    $this->getServer()->getAsyncPool()->submitTaskToWorker(new class () extends AsyncTask {
-                        public function onRun(): void
-                        {
-                            EconomyEnchant::registerBook();
-                        }
-                    }, $worker);
-                });
-            }
-        }
-    }
+			if (!InvMenuHandler::isRegistered()) {
+				InvMenuHandler::register($this);
+			}
 
-    public function checkVirion(): bool
-    {
-        /** Checking available Virion */
-        $virion = [
-            "ConfigUpdater" => ConfigUpdater::class,
-            "UpdateNotifier" => UpdateNotifier::class
-        ];
+			$this->shopUI = new GUI();
+		} else {
+			if (!$this->checkDependency(PocketForm::class, 'PocketForm', $errorSuffix)) {
+				return false;
+			}
 
-        // for log to Console
-        $notInstalled = [];
-        foreach($virion as $name => $class) {
-            if(!class_exists($class)) {
-                $notInstalled[] = $name;
-            }
-        }
+			$this->shopUI = new UI();
+		}
 
-        if(!empty($notInstalled)) {
-            $log = implode(", ", $notInstalled);
-            $this->getLogger()->warning("Virion: " . $log . " not installed please install or Download EconomyEnchant from Poggit CI, Disabling Plugin!");
+		return true;
+	}
 
-            // Disable Plugin
-            $this->getServer()->getPluginManager()->disablePlugin($this);
-            return false;
-        }
+	private function checkDependency(string $class, string $name, string $errorSuffix) : bool {
+		if (!class_exists($class)) {
+			$this->getLogger()->warning($name . $errorSuffix);
+			$this->getServer()->getPluginManager()->disablePlugin($this);
+			return false;
+		}
 
-        // Checking form Type and Depending Libs
-        $formType = strtolower($this->getConfig()->get("form-type"));
-        if($formType == "gui") {
-            if(!class_exists(InvMenu::class)) {
-                $this->getLogger()->warning("InvMenu not installed, If you want use GUI please install or Download EconomyEnchant from Poggit CI, Disabling Plugin!");
-                // Disable Plugin
-                $this->getServer()->getPluginManager()->disablePlugin($this);
-                return false;
-            } else {
-                if(!InvMenuHandler::isRegistered()) {
-                    InvMenuHandler::register($this);
-                }
-            }
-        } else {
-            if(!class_exists(FormAPI::class)) {
-                $this->getLogger()->warning("FormAPI not installed, If you want use UI please install or Download EconomyEnchant from Poggit CI, Disabling Plugin!");
-                // Disable Plugin
-                $this->getServer()->getPluginManager()->disablePlugin($this);
-                return false;
-            }
-        }
-        return true;
-    }
+		return true;
+	}
 
-    /** @return null|string */
-    public function getEconomyType()
-    {
-        $economys = strtolower($this->getConfig()->get("economy"));
-        $economy = null;
-        $plugin = $this->getServer()->getPluginManager();
+	private function registerEnchantTableEvent() : void {
+		$this->getServer()->getPluginManager()->registerEvent(
+			PlayerInteractEvent::class,
+			function (PlayerInteractEvent $event) : void {
+				if ($event->isCancelled()) {
+					return;
+				}
 
-        switch ($economys) {
-            case "bedrockeconomy":
-                if ($plugin->getPlugin("BedrockEconomy") == null) {
-                    $this->getLogger()->alert("Your Economy's plugin: BedrockEconomy, Not found Disabling Plugin!");
-                    $plugin->disablePlugin($this);
-                    return null;
-                }
-                $economy = "BedrockEconomy";
-                break;
-            case "xp":
-                $economy = "XP";
-                break;
-            case "auto":
-                $found = false;
-                foreach (self::availableEconomy as $eco) {
-                    if ($plugin->getPlugin($eco) !== null) {
-                        $economy = $eco;
-                        $found = true;
-                        break;
-                    }
-                }
-                if (!$found) {
-                    $this->getLogger()->alert("all economy plugins could not be found, Using XP as an alternative!");
-                    $economy = "XP";
-                }
-                break;
-            default:
-                $this->getLogger()->info("No economy plugin Selected, Detecting");
-                $found = false;
-                foreach (self::availableEconomy as $eco) {
-                    if ($plugin->getPlugin($eco) !== null) {
-                        $economy = $eco;
-                        $found = true;
-                        break;
-                    }
-                }
-                if (!$found) {
-                    $this->getLogger()->alert("all economy plugins could not be found, Using XP as an alternative!");
-                    $economy = "XP";
-                }
-                break;
-        }
-        return $economy;
-    }
+				$player = $event->getPlayer();
+				$block = $event->getBlock();
+				if ($block instanceof EnchantingTable) {
+					$event->cancel();
+					$this->sendShop($player);
+				}
+			},
+			EventPriority::LOWEST,
+			$this
+		);
+	}
 
-    /**
-     * @internal
-     */
-    public static function getInstance(): EconomyEnchant
-    {
-        return self::$instance;
-    }
+	private function registerVanillaEnchant(bool $mode = true) : void {
+		/** @var string $name */
+		foreach (VanillaEnchantments::getAll() as $name => $enchant) {
+			$sname = strtolower($name);
+			$displayname = Utils::capitalize(str_replace('_', ' ', $name));
 
-    /**
-     * Get message type
-     * To static for easy getting
-     */
-    public static function getMessage(string $type): string
-    {
-        return self::$instance->getConfig()->get("message")[$type];
-    }
+			$price = EnchantManager::getPriceInConfig($sname);
+			if ($price === null) {
+				if (!$mode) {
+					continue;
+				}
 
-    /**
-     * Register all Available enchantment from VanillaPocketmine
-     */
-    public function registerVanillaEnchant(bool $mode = true): void
-    {
-        // Get all Available enchantment Vanilla
-        $all = VanillaEnchantments::getAll();
+				$price = EnchantManager::getPriceInConfig('default');
+			}
 
-        // add only if not Blacklisted
-        foreach ($all as $name => $enchant) {
-            $sname = strtolower($name);
+			EnchantManager::register($sname, $displayname, $price, $enchant, VanillaEnchant::class);
+		}
+	}
 
-            // Display name for Button
-            // _ replaced to space
-            $display = str_replace("_", " ", $name);
-            $displayname = ucwords(strtolower($display));
+	public function sendShop(Player $player) : void {
+		$this->shopUI->sendShop($player);
+	}
 
-            // Getting price and pass if the mode is false and the price is not set
-            $price = EnchantManager::getPriceInConfig($sname);
-            if($price == null) {
-                if(!$mode) {
-                    continue;
-                }
-
-                $price = EnchantManager::getPriceInConfig("default");
-            }
-
-            // Registering Enchant to Shop
-            EnchantManager::register($sname, $displayname, $price, $enchant, VanillaEnchant::class);
-        }
-    }
-
-    /**
-     * Register all Available enchantment from VanillaCE
-     */
-    public function registerVanillaCEnchant(bool $mode = true): void
-    {
-        // Instance from EnchantIDMap
-        $encmap = EnchantmentIdMap::getInstance();
-
-        // All VanillaEC Enchantment
-        $all = [
-            EnchantmentIds::BANE_OF_ARTHROPODS => $encmap->fromId(EnchantmentIds::BANE_OF_ARTHROPODS),
-            EnchantmentIds::LOOTING => $encmap->fromId(EnchantmentIds::LOOTING),
-            EnchantmentIds::FORTUNE => $encmap->fromId(EnchantmentIds::FORTUNE),
-            EnchantmentIds::SMITE => $encmap->fromId(EnchantmentIds::SMITE)
-        ];
-
-        // add only if not Blacklisted
-        foreach ($all as $id => $enchant) {
-            $name = strtolower(str_replace(" ", "_", $enchant->getId())); // Replace space name with underline
-
-            // Display name for Button
-            // _ replaced to space
-            $display = str_replace("_", " ", $name);
-            $displayname = ucwords(strtolower($display));
-
-            // Getting price and pass if the mode is false and the price is not set
-            $price = EnchantManager::getPriceInConfig($name);
-            if($price == null) {
-                if(!$mode) {
-                    continue;
-                }
-
-                $price = EnchantManager::getPriceInConfig("default");
-            }
-
-            // Registering Enchant to Shop
-            EnchantManager::register($name, $displayname, $price, $enchant, VanillaEnchant::class);
-        }
-    }
-
-    public static function registerBook()
-    {
-        $item = EnchantedBook::ENCHANTED_BOOK();
-        $id = ItemTypeNames::ENCHANTED_BOOK;
-
-        GlobalItemDataHandlers::getDeserializer()->map($id, fn () => clone $item);
-        GlobalItemDataHandlers::getSerializer()->map($item, fn () => new SavedItemData($id));
-        StringToItemParser::getInstance()->register("enchanted_book", fn () => clone $item);
-    }
-
-    private function registerProvider(string $name = "XP"): void
-    {
-        if ($name == "BedrockEconomy") {
-            $provider = new BedrockEconomy();
-        } elseif ($name == "XP") {
-            $provider = new XP();
-        }
-
-        $this->provider = $provider;
-    }
-
-    /** @return Provider */
-    public function getProvider(): Provider
-    {
-        return $this->provider;
-    }
-
-    public function sendShop(Player $player): void
-    {
-        $formType = strtolower($this->getConfig()->get("form-type"));
-        ($formType === "gui") ? (new GUI())->sendShop($player, 0) : (new UI())->sendShop($player);
-    }
+	public static function getMessage(string $type) : string {
+		return self::$instance->getConfig()->get('message')[$type];
+	}
 }

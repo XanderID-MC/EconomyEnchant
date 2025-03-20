@@ -6,125 +6,120 @@ namespace MulqiGaming64\EconomyEnchant\Transaction\Shop;
 
 use MulqiGaming64\EconomyEnchant\EconomyEnchant;
 use MulqiGaming64\EconomyEnchant\Manager\EnchantManager;
+use MulqiGaming64\EconomyEnchant\Provider\Provider;
+use MulqiGaming64\EconomyEnchant\Utils;
 use pocketmine\player\Player;
-use jojoe77777\FormAPI\SimpleForm;
-use jojoe77777\FormAPI\CustomForm;
-
+use XanderID\PocketForm\custom\CustomForm;
+use XanderID\PocketForm\custom\CustomFormResponse;
+use XanderID\PocketForm\simple\element\Button;
+use XanderID\PocketForm\simple\SimpleForm;
+use XanderID\PocketForm\simple\SimpleFormResponse;
 use function ksort;
 use function str_replace;
 
-class UI
-{
-    /** @var array */
-    private $form = [];
+class UI {
+	private array $form;
 
-    public function __construct()
-    {
-        $this->form = EconomyEnchant::getInstance()->getConfig()->get("form");
-    }
+	public function __construct() {
+		$this->form = EconomyEnchant::getInstance()->getConfig()->get('form');
+	}
 
-    /** @param Player $player */
-    public function sendShop(Player $player): void
-    {
-        $item = $player->getInventory()->getItemInHand();
+	public function sendShop(Player $player) : void {
+		$item = $player->getInventory()->getItemInHand();
+		$enchantList = EnchantManager::getEnchantByItem($item);
+		ksort($enchantList);
 
-        // List all enchantment by Item
-        $list = EnchantManager::getEnchantByItem($item);
+		if (empty($enchantList)) {
+			$player->sendMessage(EconomyEnchant::getMessage('err-item'));
+			return;
+		}
 
-        // sort enchant names alphabetically
-        ksort($list);
+		$form = new SimpleForm($this->form['buy-shop']['title']);
+		$form->setBody($this->form['buy-shop']['content']);
 
-        // Check if item cannot be enchant
-        if(empty($list)) {
-            $player->sendMessage(EconomyEnchant::getMessage("err-item"));
-            return;
-        }
+		foreach ($enchantList as $display => $enchantData) {
+			$price = $enchantData['price'];
+			$buttonLabel = $this->buildButton(0, [$display, $price]) . "\n" . $this->buildButton(1, [$display, $price]);
 
-        // Create Form
-        $form = new SimpleForm(function (Player $player, $data = null) use ($list) {
-            if ($data === null) {
-                $player->sendMessage(EconomyEnchant::getMessage("exit"));
-                return;
-            }
-            $newData = $list[$data];
-            $newData["display"] = $data;
-            $this->submit($player, $newData);
-        });
-        $form->setTitle($this->form["buy-shop"]["title"]);
-        $form->setContent($this->form["buy-shop"]["content"]);
-        foreach ($list as $display => $enchant) {
-            // Get Price from Enchant
-            $price = $enchant["price"];
-            // Button style
-            $button = $this->getButton(0, [$display, $price]);
-            $button2 = $this->getButton(1, [$display, $price]);
-            $form->addButton($button . "\n" . $button2, -1, "", $display);
-        }
-        $player->sendForm($form);
-    }
+			$button = new Button($buttonLabel);
+			$button->setCustomId($display);
+			$form->addElement($button);
+		}
 
-    /**
-     * Submit Enchant
-     */
-    private function submit(Player $player, array $encdata): void
-    {
-        // Preparing Enchant
-        $enchantment = $encdata["enchant"];
-        $display = $encdata["display"];
+		$form->onResponse(function (SimpleFormResponse $response) use ($enchantList) : void {
+			$player = $response->getPlayer();
+			$selected = $response->getSelected();
+			$enchantName = $selected->getId();
+			if (!isset($enchantList[$enchantName])) {
+				$player->sendMessage(EconomyEnchant::getMessage('err-enchant'));
+				return;
+			}
 
-        $item = $player->getInventory()->getItemInHand();
-        $nowlevel = (int) $item->hasEnchantment($enchantment) ? $item->getEnchantmentLevel($enchantment) : 0;
-        $maxlevel = (int) $enchantment->getMaxLevel();
+			$selectedEnchant = $enchantList[$enchantName];
+			$selectedEnchant['display'] = $enchantName;
+			$this->submit($player, $selectedEnchant);
+		});
+		$form->onClose(function (Player $player) : void {
+			$player->sendMessage(EconomyEnchant::getMessage('exit'));
+		});
 
-        // Preparing form
-        $form = new CustomForm(function (Player $player, $data = null) use ($encdata, $display) {
-            if ($data === null) {
-                $player->sendMessage(EconomyEnchant::getMessage("exit"));
-                return;
-            }
-            // If Item Level Max
-            if ($data[1] === null) {
-                $player->sendMessage(EconomyEnchant::getMessage("max"));
-                return;
-            }
+		$player->sendForm($form);
+	}
 
-            $reqlevel = (int) $data[1]; // get requested level
-            $price = (int) $encdata["price"] * $reqlevel; // multiply level by price
-            $provider = EconomyEnchant::getInstance()->getProvider();
-            // Process Transaction With callable
-            $provider->process($player, $price, $display, function (int $status) use ($player, $encdata, $display, $price, $reqlevel) {
-                if ($status == EconomyEnchant::STATUS_SUCCESS) {
-                    $item = $player->getInventory()->getItemInHand();
-                    $msg = str_replace(
-                        ["{price}", "{item}", "{enchant}"],
-                        ["" . $price, $item->getVanillaName(), $display . " " . EnchantManager::numberToRoman($reqlevel)],
-                        EconomyEnchant::getMessage("success")
-                    );
-                    $player->sendMessage($msg);
-                    EnchantManager::enchantItem($player, $encdata["enchant"], $reqlevel);
-                    EnchantManager::sendSound($player);
-                } else {
-                    $msg = str_replace("{need}", "" . $price, EconomyEnchant::getMessage("enough"));
-                    $player->sendMessage($msg);
-                }
-                return;
-            });
-            return;
-        });
-        $form->setTitle($this->form["submit"]["title"]);
-        $form->addLabel(str_replace("{price}", "" . $encdata["price"], $this->form["submit"]["content"]));
-        if ($nowlevel < $maxlevel) {
-            $form->addSlider($this->form["submit"]["slider"], ($nowlevel + 1), $maxlevel);
-        } else {
-            $form->addLabel("\n" . $this->form["submit"]["max-content"]);
-        }
-        $player->sendForm($form);
-    }
+	private function submit(Player $player, array $encData) : void {
+		$enchantment = $encData['enchant'];
+		$display = $encData['display'];
+		$item = $player->getInventory()->getItemInHand();
+		$nowLevel = $item->hasEnchantment($enchantment) ? $item->getEnchantmentLevel($enchantment) : 0;
+		$maxLevel = $enchantment->getMaxLevel();
 
-    public function getButton(int $index, array $data): string
-    {
-        // Get Button from Config
-        $button = $this->form["buy-shop"]["button"];
-        return str_replace(["{enchant}", "{price}"], [$data[0], $data[1]], $button[$index]);
-    }
+		$form = new CustomForm($this->form['submit']['title']);
+		if ($nowLevel < $maxLevel) {
+			$content = str_replace('{price}', (string) $encData['price'], $this->form['submit']['content']);
+			$form->addLabel($content);
+			$form->addSlider($this->form['submit']['slider'], $nowLevel + 1, $maxLevel);
+			$form->setSubmit($this->form['submit']['button']);
+		} else {
+			$form->addLabel("\n" . $this->form['submit']['max-content']);
+			$form->setSubmit('Close');
+		}
+
+		$form->onResponse(function (CustomFormResponse $response) use ($encData, $display) : void {
+			$player = $response->getPlayer();
+			$values = $response->getValues();
+			if (!isset($values[0])) {
+				return;
+			}
+
+			$reqLevel = (int) $values[0];
+			$price = (int) $encData['price'] * $reqLevel;
+			$provider = EconomyEnchant::getInstance()->getProvider();
+			$provider->process($player, $price, $display, function (int $status) use ($player, $encData, $display, $price, $reqLevel) : void {
+				if ($status === Provider::STATUS_SUCCESS) {
+					$currentItem = $player->getInventory()->getItemInHand();
+					$msg = str_replace(
+						['{price}', '{item}', '{enchant}'],
+						[$price, $currentItem->getVanillaName(), $display . ' ' . Utils::numberToRoman($reqLevel)],
+						EconomyEnchant::getMessage('success')
+					);
+					$player->sendMessage($msg);
+					EnchantManager::enchantItem($player, $encData['enchant'], $reqLevel);
+					Utils::sendSound($player);
+				} else {
+					$msg = str_replace('{need}', (string) $price, EconomyEnchant::getMessage('enough'));
+					$player->sendMessage($msg);
+				}
+			});
+		});
+		$form->onClose(function (Player $player) : void {
+			$player->sendMessage(EconomyEnchant::getMessage('exit'));
+		});
+
+		$player->sendForm($form);
+	}
+
+	private function buildButton(int $index, array $data) : string {
+		$buttonTemplates = $this->form['buy-shop']['button'];
+		return str_replace(['{enchant}', '{price}'], [$data[0], $data[1]], $buttonTemplates[$index]);
+	}
 }
